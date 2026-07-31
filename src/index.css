@@ -1,0 +1,166 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;800;900&family=Big+Shoulders+Display:wght@500;600;700;800&family=Roboto+Condensed:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+@layer base {
+  :root {
+    --background: 0 0% 5%;
+    --foreground: 30 78% 50%;
+    --card: 0 0% 8%;
+    --card-foreground: 30 78% 50%;
+    --popover: 0 0% 8%;
+    --popover-foreground: 30 78% 50%;
+    --primary: 30 78% 50%;
+    --primary-foreground: 0 0% 5%;
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 30 78% 50%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 60%;
+    --accent: 30 78% 50%;
+    --accent-foreground: 0 0% 5%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 30 72% 35%;
+    --input: 0 0% 15%;
+    --ring: 30 78% 50%;
+    --radius: 0.25rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Roboto Condensed', sans-serif;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Big Shoulders Display', sans-serif;
+    letter-spacing: 0.02em;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-orange-500 via-orange-400 to-toxic-400;
+  }
+  .glow-orange {
+    box-shadow: 0 0 20px rgba(227, 128, 28, 0.5), 0 0 40px rgba(227, 128, 28, 0.25);
+  }
+  .glow-text {
+    text-shadow: 0 0 10px rgba(227, 128, 28, 0.8), 0 0 20px rgba(227, 128, 28, 0.5);
+  }
+  .border-glow {
+    border: 1px solid rgba(227, 128, 28, 0.5);
+    box-shadow: 0 0 10px rgba(227, 128, 28, 0.3), inset 0 0 10px rgba(227, 128, 28, 0.1);
+  }
+  .stalker-card {
+    @apply bg-zinc-900/80 backdrop-blur-sm border border-orange-500/30 rounded;
+  }
+  .stalker-btn {
+    @apply bg-gradient-to-r from-orange-600 to-orange-500 text-black font-bold px-6 py-3 rounded
+           hover:from-orange-500 hover:to-orange-400 transition-all duration-300 glow-orange;
+  }
+  .stalker-btn-outline {
+    @apply border-2 border-orange-500 text-orange-500 font-bold px-6 py-3 rounded
+           hover:bg-orange-500 hover:text-black transition-all duration-300;
+  }
+  .font-data {
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* Фирменный элемент — сигнальная лента вместо типового градиентного подчёркивания.
+     Используется как разделитель под заголовками секций. */
+  .hazard-divider {
+    height: 6px;
+    width: 100%;
+    max-width: 8rem;
+    margin: 0 auto;
+    background: repeating-linear-gradient(
+      -45deg,
+      theme('colors.orange.500'),
+      theme('colors.orange.500') 10px,
+      #0a0a0a 10px,
+      #0a0a0a 20px
+    );
+    filter: drop-shadow(0 0 6px rgba(227, 128, 28, 0.4));
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+::-webkit-scrollbar-thumb {
+  background: #f97316;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #ea580c;
+}
+
+/* Animation for radiation effect */
+@keyframes pulse-radiation {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.05);
+  }
+}
+
+.radiation-pulse {
+  animation: pulse-radiation 3s ease-in-out infinite;
+}
+
+/* Glitch effect for text */
+@keyframes glitch {
+  0% {
+    clip-path: inset(40% 0 61% 0);
+    transform: translate(-2px, 2px);
+  }
+  20% {
+    clip-path: inset(92% 0 1% 0);
+    transform: translate(2px, -2px);
+  }
+  40% {
+    clip-path: inset(43% 0 1% 0);
+    transform: translate(-2px, 2px);
+  }
+  60% {
+    clip-path: inset(25% 0 58% 0);
+    transform: translate(2px, -2px);
+  }
+  80% {
+    clip-path: inset(54% 0 7% 0);
+    transform: translate(-2px, 2px);
+  }
+  100% {
+    clip-path: inset(58% 0 43% 0);
+    transform: translate(2px, -2px);
+  }
+}
+
+/* Scanline effect */
+.scanlines {
+  background: linear-gradient(
+    to bottom,
+    rgba(255,255,255,0),
+    rgba(255,255,255,0) 50%,
+    rgba(0,0,0,0.1) 50%,
+    rgba(0,0,0,0.1)
+  );
+  background-size: 100% 4px;
+  pointer-events: none;
+}
