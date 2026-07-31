@@ -11,6 +11,50 @@
 const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL;
 const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+
+const weekdaySchedule = {
+  '11:00': { 2: 110, 3: 135, 4: 150, 5: 175, 6: 190 },
+  '12:40': { 2: 110, 3: 135, 4: 150, 5: 175, 6: 190 },
+  '14:20': { 2: 120, 3: 145, 4: 160, 5: 180, 6: 195 },
+  '16:00': { 2: 120, 3: 145, 4: 160, 5: 180, 6: 195 },
+  '17:40': { 2: 120, 3: 145, 4: 160, 5: 180, 6: 195 },
+  '19:15': { 2: 120, 3: 145, 4: 160, 5: 180, 6: 195 },
+  '20:45': { 2: 120, 3: 145, 4: 160, 5: 180, 6: 195 },
+  '22:20': { 2: 120, 3: 145, 4: 160, 5: 180, 6: 195 },
+};
+const weekendSchedule = {
+  '10:00': { 2: 120, 3: 140, 4: 160, 5: 180, 6: 195 },
+  '11:45': { 2: 120, 3: 140, 4: 160, 5: 180, 6: 195 },
+  '13:30': { 2: 130, 3: 150, 4: 175, 5: 195, 6: 210 },
+  '15:15': { 2: 130, 3: 150, 4: 175, 5: 195, 6: 210 },
+  '17:00': { 2: 130, 3: 150, 4: 175, 5: 195, 6: 210 },
+  '18:45': { 2: 130, 3: 150, 4: 175, 5: 195, 6: 210 },
+  '20:30': { 2: 130, 3: 150, 4: 175, 5: 195, 6: 210 },
+  '22:15': { 2: 130, 3: 150, 4: 175, 5: 195, 6: 210 },
+};
+const modeLabels = { standard: 'Стандартный (14+)', light: 'Лайт (12+)', kids: 'Детский (10+)' };
+
+function calcPrice(dateStr, time, players) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const day = new Date(y, m - 1, d).getDay();
+  const isWeekend = day === 0 || day === 6;
+  const row = (isWeekend ? weekendSchedule : weekdaySchedule)[time];
+  if (!row) return null;
+  return row[players] || row[2];
+}
+
+async function sendTelegramMessage(text) {
+  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return;
+  const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text, parse_mode: 'HTML' }),
+  });
+  if (!r.ok) console.error('Telegram send failed:', await r.text());
+}
 
 async function redis(command) {
   const res = await fetch(UPSTASH_URL, {
@@ -66,23 +110,52 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      const { date, time, note } = req.body || {};
+      const { date, time, type, note, name, phone, players, mode, comment } = req.body || {};
       if (!date || !time) return res.status(400).json({ error: 'date и time обязательны' });
 
       const existing = await redis(['SMEMBERS', `bookings:${date}`]);
       const already = (existing.result || []).map((e) => JSON.parse(e).time).includes(time);
       if (already) return res.status(409).json({ error: 'На это время уже есть бронь' });
 
-      const record = {
-        time,
-        players: '—',
-        mode: 'technical',
-        name: 'Техническая бронь',
-        phone: '—',
-        comment: note || '',
-        source: 'admin',
-        createdAt: new Date().toISOString(),
-      };
+      let record;
+      if (type === 'normal') {
+        if (!name || !phone) return res.status(400).json({ error: 'Имя и телефон обязательны' });
+        const price = calcPrice(date, time, Number(players) || 2);
+        record = {
+          time,
+          players: players || 2,
+          mode: mode || 'standard',
+          name,
+          phone,
+          comment: comment || '',
+          price,
+          source: 'admin',
+          createdAt: new Date().toISOString(),
+        };
+        await sendTelegramMessage(
+          `🎯 <b>Бронь добавлена вручную в админке</b>\n\n` +
+            `📅 Дата: <b>${date}</b>\n` +
+            `🕐 Время: <b>${time}</b>\n` +
+            `👥 Игроков: <b>${players || 2}</b>\n` +
+            `🎮 Режим: ${modeLabels[mode] || mode || 'Стандартный'}\n` +
+            `💰 Цена: <b>${price !== null ? price + ' р.' : 'уточнить на сайте'}</b>\n` +
+            `👤 Имя: ${name}\n` +
+            `📞 Телефон: ${phone}\n` +
+            (comment ? `💬 Комментарий: ${comment}\n` : '')
+        );
+      } else {
+        record = {
+          time,
+          players: '—',
+          mode: 'technical',
+          name: 'Техническая бронь',
+          phone: '—',
+          comment: note || '',
+          source: 'admin',
+          createdAt: new Date().toISOString(),
+        };
+      }
+
       await redis(['SADD', `bookings:${date}`, JSON.stringify(record)]);
       await redis(['SADD', 'booking-dates', date]);
       return res.status(200).json({ success: true });

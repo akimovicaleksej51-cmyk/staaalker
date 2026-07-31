@@ -24,6 +24,27 @@ const modeLabels: Record<string, string> = {
 const weekdaySlots = ['11:00', '12:40', '14:20', '16:00', '17:40', '19:15', '20:45', '22:20'];
 const weekendSlots = ['10:00', '11:45', '13:30', '15:15', '17:00', '18:45', '20:30', '22:15'];
 
+const weekdayPrices: Record<string, Record<number, number>> = {
+  '11:00': { 2: 110, 3: 135, 4: 150, 5: 175, 6: 190 },
+  '12:40': { 2: 110, 3: 135, 4: 150, 5: 175, 6: 190 },
+  '14:20': { 2: 120, 3: 145, 4: 160, 5: 180, 6: 195 },
+  '16:00': { 2: 120, 3: 145, 4: 160, 5: 180, 6: 195 },
+  '17:40': { 2: 120, 3: 145, 4: 160, 5: 180, 6: 195 },
+  '19:15': { 2: 120, 3: 145, 4: 160, 5: 180, 6: 195 },
+  '20:45': { 2: 120, 3: 145, 4: 160, 5: 180, 6: 195 },
+  '22:20': { 2: 120, 3: 145, 4: 160, 5: 180, 6: 195 },
+};
+const weekendPrices: Record<string, Record<number, number>> = {
+  '10:00': { 2: 120, 3: 140, 4: 160, 5: 180, 6: 195 },
+  '11:45': { 2: 120, 3: 140, 4: 160, 5: 180, 6: 195 },
+  '13:30': { 2: 130, 3: 150, 4: 175, 5: 195, 6: 210 },
+  '15:15': { 2: 130, 3: 150, 4: 175, 5: 195, 6: 210 },
+  '17:00': { 2: 130, 3: 150, 4: 175, 5: 195, 6: 210 },
+  '18:45': { 2: 130, 3: 150, 4: 175, 5: 195, 6: 210 },
+  '20:30': { 2: 130, 3: 150, 4: 175, 5: 195, 6: 210 },
+  '22:15': { 2: 130, 3: 150, 4: 175, 5: 195, 6: 210 },
+};
+
 const pad2 = (n: number) => n.toString().padStart(2, '0');
 const todayStr = () => {
   const d = new Date();
@@ -33,6 +54,12 @@ const isWeekend = (dateStr: string) => {
   const [y, m, d] = dateStr.split('-').map(Number);
   const day = new Date(y, m - 1, d).getDay();
   return day === 0 || day === 6;
+};
+const calcPrice = (dateStr: string, time: string, players: number) => {
+  const table = isWeekend(dateStr) ? weekendPrices : weekdayPrices;
+  const row = table[time];
+  if (!row) return '—';
+  return row[players] || row[2];
 };
 
 const Admin = () => {
@@ -49,7 +76,13 @@ const Admin = () => {
   const [error, setError] = useState('');
 
   const [selectedSlot, setSelectedSlot] = useState<{ time: string; booking: Booking | null } | null>(null);
+  const [bookingType, setBookingType] = useState<'technical' | 'normal'>('technical');
   const [noteText, setNoteText] = useState('');
+  const [formName, setFormName] = useState('');
+  const [formPhone, setFormPhone] = useState('');
+  const [formPlayers, setFormPlayers] = useState(2);
+  const [formMode, setFormMode] = useState('standard');
+  const [formComment, setFormComment] = useState('');
   const [detailBooking, setDetailBooking] = useState<Booking | null>(null);
 
   const apiCall = async (method: string, body?: any, query?: string) => {
@@ -120,12 +153,34 @@ const Admin = () => {
     }
   };
 
-  const addTechnical = async () => {
+  const addBooking = async () => {
     if (!selectedSlot) return;
     try {
-      await apiCall('POST', { date, time: selectedSlot.time, note: noteText });
+      if (bookingType === 'technical') {
+        await apiCall('POST', { date, time: selectedSlot.time, type: 'technical', note: noteText });
+      } else {
+        if (!formName || !formPhone) {
+          alert('Заполните имя и телефон');
+          return;
+        }
+        await apiCall('POST', {
+          date,
+          time: selectedSlot.time,
+          type: 'normal',
+          name: formName,
+          phone: formPhone,
+          players: formPlayers,
+          mode: formMode,
+          comment: formComment,
+        });
+      }
       setSelectedSlot(null);
       setNoteText('');
+      setFormName('');
+      setFormPhone('');
+      setFormPlayers(2);
+      setFormMode('standard');
+      setFormComment('');
       loadBookings();
     } catch (err: any) {
       alert(err.message);
@@ -219,7 +274,16 @@ const Admin = () => {
                 return (
                   <button
                     key={time}
-                    onClick={() => setSelectedSlot({ time, booking })}
+                    onClick={() => {
+                      setSelectedSlot({ time, booking });
+                      setBookingType('technical');
+                      setNoteText('');
+                      setFormName('');
+                      setFormPhone('');
+                      setFormPlayers(2);
+                      setFormMode('standard');
+                      setFormComment('');
+                    }}
                     className={`p-3 rounded text-center text-sm font-data border-2 transition-all ${
                       booking
                         ? isTechnical
@@ -266,16 +330,98 @@ const Admin = () => {
                   </div>
                 ) : (
                   <div>
-                    <h3 className="text-orange-400 font-bold mb-2">Поставить техническую бронь на {selectedSlot.time}</h3>
-                    <input
-                      type="text"
-                      value={noteText}
-                      onChange={(e) => setNoteText(e.target.value)}
-                      placeholder="Причина (например: техобслуживание)"
-                      className="w-full bg-zinc-800 border border-orange-500/30 rounded px-3 py-2 text-gray-200 mb-3 focus:outline-none focus:border-orange-500"
-                    />
-                    <button onClick={addTechnical} className="stalker-btn text-sm">
-                      Заблокировать слот
+                    <div className="flex gap-2 mb-4">
+                      <button
+                        onClick={() => setBookingType('normal')}
+                        className={`flex-1 py-2 rounded text-sm font-bold ${
+                          bookingType === 'normal' ? 'bg-orange-500 text-black' : 'bg-zinc-800 text-gray-400'
+                        }`}
+                      >
+                        Обычная бронь
+                      </button>
+                      <button
+                        onClick={() => setBookingType('technical')}
+                        className={`flex-1 py-2 rounded text-sm font-bold ${
+                          bookingType === 'technical' ? 'bg-orange-500 text-black' : 'bg-zinc-800 text-gray-400'
+                        }`}
+                      >
+                        Техническая
+                      </button>
+                    </div>
+
+                    {bookingType === 'technical' ? (
+                      <>
+                        <h3 className="text-orange-400 font-bold mb-2">
+                          Заблокировать {selectedSlot.time} без клиента
+                        </h3>
+                        <input
+                          type="text"
+                          value={noteText}
+                          onChange={(e) => setNoteText(e.target.value)}
+                          placeholder="Причина (например: техобслуживание)"
+                          className="w-full bg-zinc-800 border border-orange-500/30 rounded px-3 py-2 text-gray-200 mb-3 focus:outline-none focus:border-orange-500"
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <h3 className="text-orange-400 font-bold mb-3">Новая бронь на {selectedSlot.time}</h3>
+                        <div className="grid sm:grid-cols-2 gap-3 mb-3">
+                          <input
+                            type="text"
+                            value={formName}
+                            onChange={(e) => setFormName(e.target.value)}
+                            placeholder="Имя"
+                            className="bg-zinc-800 border border-orange-500/30 rounded px-3 py-2 text-gray-200 focus:outline-none focus:border-orange-500"
+                          />
+                          <input
+                            type="tel"
+                            value={formPhone}
+                            onChange={(e) => setFormPhone(e.target.value)}
+                            placeholder="+375 33 686-30-79"
+                            className="bg-zinc-800 border border-orange-500/30 rounded px-3 py-2 text-gray-200 focus:outline-none focus:border-orange-500"
+                          />
+                          <div>
+                            <label className="block text-xs text-gray-500 mb-1">Игроков</label>
+                            <select
+                              value={formPlayers}
+                              onChange={(e) => setFormPlayers(Number(e.target.value))}
+                              className="w-full bg-zinc-800 border border-orange-500/30 rounded px-3 py-2 text-gray-200 focus:outline-none focus:border-orange-500"
+                            >
+                              {[2, 3, 4, 5, 6].map((n) => (
+                                <option key={n} value={n}>
+                                  {n} чел.
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-500 mb-1">Режим</label>
+                            <select
+                              value={formMode}
+                              onChange={(e) => setFormMode(e.target.value)}
+                              className="w-full bg-zinc-800 border border-orange-500/30 rounded px-3 py-2 text-gray-200 focus:outline-none focus:border-orange-500"
+                            >
+                              <option value="standard">Стандартный</option>
+                              <option value="light">Лайт</option>
+                              <option value="kids">Детский</option>
+                            </select>
+                          </div>
+                        </div>
+                        <textarea
+                          value={formComment}
+                          onChange={(e) => setFormComment(e.target.value)}
+                          placeholder="Комментарий (необязательно)"
+                          rows={2}
+                          className="w-full bg-zinc-800 border border-orange-500/30 rounded px-3 py-2 text-gray-200 mb-3 focus:outline-none focus:border-orange-500 resize-none"
+                        />
+                        <p className="text-sm text-gray-400 mb-3">
+                          Цена: <span className="text-orange-400 font-bold font-data">{calcPrice(date, selectedSlot.time, formPlayers)} р.</span>
+                        </p>
+                      </>
+                    )}
+
+                    <button onClick={addBooking} className="stalker-btn text-sm">
+                      {bookingType === 'technical' ? 'Заблокировать слот' : 'Создать бронь'}
                     </button>
                   </div>
                 )}
